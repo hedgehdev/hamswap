@@ -16,6 +16,70 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
-module.exports = {
-  solidity: "0.8.4",
+ const utils = require('./scripts/utils')
+ const config = utils.getConfig();
+ module.exports = {
+
+  networks: {
+    ropsten:  {
+      url: `https://ropsten.infura.io/v3/${config.ropsten.infuraKey}`,
+      accounts: [`0x${config.ropsten.privateKeys[0]}`, `0x${config.ropsten.privateKeys[1]}`],
+    },
+    rinkeby: {
+      url: `https://rinkeby.infura.io/v3/${config.ropsten.infuraKey}`,
+      accounts: [`0x${config.ropsten.privateKeys[0]}`, `0x${config.ropsten.privateKeys[1]}`],
+    },
+    // mainnet: {
+    //   url: `https://eth-mainnet.alchemyapi.io/v2/${config.ropsten.alchemyApiKey}`,
+    //   accounts: [`0x${process.env.DEV_PRIVATE_KEY}`],
+    // },
+
+    // hardhat: {
+    //   mining: {
+    //     auto: true,
+    //   },
+    //   forking: {
+    //     url: `https://mainnet.infura.io/v3/${config.mainnet.infuraKey}`, // put your infura key
+    //     // blockNumber: 12867134,                                        // putting historical block number requires archive node
+    //   },
+    // },
+
+    // ropsten:  {
+    //   url: `https://eth-ropsten.alchemyapi.io/v2/${config.ropsten.alchemyApiKey}`,
+    //   accounts: [`0x${config.ropsten.privateKeys[0]}`, `0x${config.ropsten.privateKeys[1]}`],
+    // },
+
+    local: {
+      // need to run local node manually
+      url: "http://localhost:8545",
+      allowUnlimitedContractSize: true,
+      timeout: 2800000,
+    },
+  },
+  etherscan: {
+    apiKey: `${config.etherScanApiKey}`,
+  },
+  solidity: {
+    compilers: [
+      {
+        version: "0.5.16",
+        settings: {
+          optimizer: {
+            enabled: true, // true for release, false is default for debug and test
+            runs: 1000,
+          },
+        },
+      },
+      {
+        version: "0.8.4",
+        settings: {
+          optimizer: {
+            enabled: true, // for weth when testing
+            runs: 200,
+          },
+        },
+      }
+    ]
+    
+  },
 };
