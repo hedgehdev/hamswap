@@ -52,8 +52,10 @@ contract HamswapV2Pair is IHamswapV2Pair, HamswapV2ERC20 {
     }
 
     function getRealReserves() public view returns (uint112 _real0, uint112 _real1) {
+        // TODO: check this is legal under any circumstance
         _real0 = reserve0 - virtual0;
         _real1 = reserve1 - virtual1;
+        require(_real0 <= reserve0 && _real1 <= reserve1, "negative");
     }
 
     function _safeTransfer(address token, address to, uint value) private {
@@ -103,11 +105,11 @@ contract HamswapV2Pair is IHamswapV2Pair, HamswapV2ERC20 {
     }
     function _updateVirtual(uint balance0, uint balance1, uint112 _realReserve0, uint112 _realReserve1) private returns (uint _virtual0, uint _virtual1){
         if (_realReserve0 != 0 && _realReserve1 != 0) {
-            _virtual0 = balance0 * virtual0 / _realReserve0;
-            _virtual1 = balance1 * virtual1 / _realReserve1;
+            _virtual0 = balance0.mul(virtual0) / _realReserve0;
+            _virtual1 = balance1.mul(virtual1) / _realReserve1;
         } else {
-            _virtual0 = balance0 * virt / base;
-            _virtual1 = balance1 * virt / base;
+            _virtual0 = balance0.mul(virt) / base;
+            _virtual1 = balance1.mul(virt) / base;
         }
         require(_virtual0.add(balance0) <= uint112(-1) && _virtual1.add(balance1) <= uint112(-1), "HamswapV2: virt overflow");
         virtual0 = uint112(_virtual0);
