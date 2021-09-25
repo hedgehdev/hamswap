@@ -46,11 +46,22 @@ contract HamswapV2Pair is IHamswapV2Pair, HamswapV2ERC20 {
         _blockTimestampLast = blockTimestampLast;
     }
 
+    function getVirtualReserves() public view returns (uint112 _virtual0, uint112 _virtual1) {
+        _virtual0 = virtual0;
+        _virtual1 = virtual1;
+    }
+
+    function getRealReserves() public view returns (uint112 _real0, uint112 _real1) {
+        _real0 = reserve0 - virtual0;
+        _real1 = reserve1 - virtual1;
+    }
+
     function _safeTransfer(address token, address to, uint value) private {
         (bool success, bytes memory data) = token.call(abi.encodeWithSelector(SELECTOR, to, value));
         require(success && (data.length == 0 || abi.decode(data, (bool))), 'HamswapV2: TRANSFER_FAILED');
     }
 
+    
     event Mint(address indexed sender, uint amount0, uint amount1);
     event Burn(address indexed sender, uint amount0, uint amount1, address indexed to);
     event Swap(
@@ -90,15 +101,13 @@ contract HamswapV2Pair is IHamswapV2Pair, HamswapV2ERC20 {
         blockTimestampLast = blockTimestamp;
         emit Sync(reserve0, reserve1);
     }
-    function _updateVirtual(uint balance0, uint balance1, uint112 _reserve0, uint112 _reserve1) private {
-        uint _virtual0;
-        uint _virtual1;
-        if (_reserve0 != 0 && _reserve1 != 0) {
-            _virtual0 = balance0.mul(virtual0) / _reserve0;
-            _virtual1 = balance1.mul(virtual1) / _reserve1;
+    function _updateVirtual(uint balance0, uint balance1, uint112 _realReserve0, uint112 _realReserve1) private returns (uint _virtual0, uint _virtual1){
+        if (_realReserve0 != 0 && _realReserve1 != 0) {
+            _virtual0 = balance0 * virtual0 / _realReserve0;
+            _virtual1 = balance1 * virtual1 / _realReserve1;
         } else {
-            _virtual0 = balance0.mul(virt) / base;
-            _virtual1 = balance1.mul(virt) / base;
+            _virtual0 = balance0 * virt / base;
+            _virtual1 = balance1 * virt / base;
         }
         require(_virtual0.add(balance0) <= uint112(-1) && _virtual1.add(balance1) <= uint112(-1), "HamswapV2: virt overflow");
         virtual0 = uint112(_virtual0);
@@ -112,7 +121,7 @@ contract HamswapV2Pair is IHamswapV2Pair, HamswapV2ERC20 {
         uint _kLast = kLast; // gas savings
         if (feeOn) {
             if (_kLast != 0) {
-                uint rootK = Math.sqrt(uint(_reserve0 + virtual0).mul(_reserve1 + virtual1));
+                uint rootK = Math.sqrt(uint(_reserve0).mul(_reserve1));
                 uint rootKLast = Math.sqrt(_kLast);
                 if (rootK > rootKLast) {
                     uint numerator = totalSupply.mul(rootK.sub(rootKLast));
@@ -128,11 +137,12 @@ contract HamswapV2Pair is IHamswapV2Pair, HamswapV2ERC20 {
 
     // this low-level function should be called from a contract which performs important safety checks
     function mint(address to) external lock returns (uint liquidity) {
-        (uint112 _reserve0, uint112 _reserve1,) = getReserves(); // gas savings
+        (uint112 _realReserve0, uint112 _realReserve1) = getRealReserves();
+        (uint112 _reserve0, uint112 _reserve1, ) = getReserves();    // gas savings
         uint balance0 = IERC20(token0).balanceOf(address(this));
         uint balance1 = IERC20(token1).balanceOf(address(this));
-        uint amount0 = balance0.sub(_reserve0);
-        uint amount1 = balance1.sub(_reserve1);
+        uint amount0 = balance0.sub(_realReserve0);
+        uint amount1 = balance1.sub(_realReserve1);
 
         bool feeOn = _mintFee(_reserve0, _reserve1);
         uint _totalSupply = totalSupply; // gas savings, must be defined here since totalSupply can update in _mintFee
@@ -141,20 +151,22 @@ contract HamswapV2Pair is IHamswapV2Pair, HamswapV2ERC20 {
             liquidity = virt != 0 ? (liquidity.mul(virt + base) / base).sub(MINIMUM_LIQUIDITY) : liquidity.sub(MINIMUM_LIQUIDITY);
             _mint(address(0), MINIMUM_LIQUIDITY); // permanently lock the first MINIMUM_LIQUIDITY tokens
         } else {
-            liquidity = Math.min(amount0.mul(_totalSupply) / _reserve0, amount1.mul(_totalSupply) / _reserve1);
+            liquidity = Math.min(amount0.mul(_totalSupply) / _realReserve0, amount1.mul(_totalSupply) / _realReserve1);
         }
         require(liquidity > 0, 'HamswapV2: INSUFFICIENT_LIQUIDITY_MINTED');
+
+        if (virt != 0) {
+            (uint _virtual0, uint _virtual1) = _updateVirtual(balance0, balance1, _realReserve0, _realReserve1);
+            balance0 = balance0.add(_virtual0);
+            balance1 = balance1.add(_virtual1);
+        }
 
         _update(balance0, balance1, _reserve0, _reserve1);
 
         _mint(to, liquidity);
 
-        if (virt != 0) {
-            _updateVirtual(balance0, balance1, _reserve0, _reserve1);
-        }
-        
 
-        if (feeOn) kLast = uint(reserve0 + virtual0).mul(reserve1 + virtual1); // reserve0 and reserve1 are up-to-date
+        if (feeOn) kLast = uint(reserve0).mul(reserve1); // reserve0 and reserve1 are up-to-date
         emit Mint(msg.sender, amount0, amount1);
     }
 
@@ -179,11 +191,14 @@ contract HamswapV2Pair is IHamswapV2Pair, HamswapV2ERC20 {
         balance1 = IERC20(_token1).balanceOf(address(this));
 
         if (virt != 0) {
-            _updateVirtual(balance0, balance1, _reserve0, _reserve1);
+            (uint112 _realReserve0, uint112 _realReserve1) = getRealReserves();
+            (uint _virtual0, uint _virtual1) = _updateVirtual(balance0, balance1, _realReserve0, _realReserve1);
+            balance0 = balance0.add(_virtual0);
+            balance1 = balance1.add(_virtual1);
         }
 
         _update(balance0, balance1, _reserve0, _reserve1);
-        if (feeOn) kLast = uint(reserve0 + virtual0).mul(reserve1 + virtual1); // reserve0 and reserve1 are up-to-date
+        if (feeOn) kLast = uint(reserve0).mul(reserve1); // reserve0 and reserve1 are up-to-date
         emit Burn(msg.sender, amount0, amount1, to);
     }
 
@@ -191,7 +206,10 @@ contract HamswapV2Pair is IHamswapV2Pair, HamswapV2ERC20 {
     function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external lock {
         require(amount0Out > 0 || amount1Out > 0, 'HamswapV2: INSUFFICIENT_OUTPUT_AMOUNT');
         (uint112 _reserve0, uint112 _reserve1,) = getReserves(); // gas savings
-        require(amount0Out < _reserve0 && amount1Out < _reserve1, 'HamswapV2: INSUFFICIENT_LIQUIDITY');
+        
+        // TODO: check actually, we can comment the following out since failure is dommed if amountOut is illegal
+        // (uint112 _virtual0, uint112 _virtual1) = getVirtualReserves();
+        // require(amount0Out <= _reserve0 - _virtual0 && amount1Out <= _reserve1 - _virtual1, 'HamswapV2: INSUFFICIENT_LIQUIDITY');
 
         uint balance0;
         uint balance1;
@@ -201,18 +219,17 @@ contract HamswapV2Pair is IHamswapV2Pair, HamswapV2ERC20 {
         require(to != _token0 && to != _token1, 'HamswapV2: INVALID_TO');
         if (amount0Out > 0) _safeTransfer(_token0, to, amount0Out); // optimistically transfer tokens
         if (amount1Out > 0) _safeTransfer(_token1, to, amount1Out); // optimistically transfer tokens
-        if (data.length > 0) IHamswapV2Callee(to).HamswapV2Call(msg.sender, amount0Out, amount1Out, data);
-        balance0 = IERC20(_token0).balanceOf(address(this));
-        balance1 = IERC20(_token1).balanceOf(address(this));
+        if (data.length > 0) IHamswapV2Callee(to).HamswapV2Call(msg.sender, amount0Out, amount1Out, data);       
+        balance0 = IERC20(_token0).balanceOf(address(this)).add(virtual0);
+        balance1 = IERC20(_token1).balanceOf(address(this)).add(virtual1);
         }
         uint amount0In = balance0 > _reserve0 - amount0Out ? balance0 - (_reserve0 - amount0Out) : 0;
         uint amount1In = balance1 > _reserve1 - amount1Out ? balance1 - (_reserve1 - amount1Out) : 0;
         require(amount0In > 0 || amount1In > 0, 'HamswapV2: INSUFFICIENT_INPUT_AMOUNT');
         { // scope for reserve{0,1}Adjusted, avoids stack too deep errors
-        uint balance0Adjusted = balance0.mul(1000).sub(amount0In.mul(3)).add(virtual0);
-        uint balance1Adjusted = balance1.mul(1000).sub(amount1In.mul(3)).add(virtual1);
-        // require(balance0Adjusted.mul(balance1Adjusted) >= uint(_reserve0).mul(_reserve1).mul(1000**2), 'HamswapV2: K');
-        require(balance0Adjusted.mul(balance1Adjusted) >= uint(_reserve0 + virtual0).mul(_reserve1 + virtual1).mul(1000**2), 'HamswapV2: K');
+        uint balance0Adjusted = balance0.mul(1000).sub(amount0In.mul(3));
+        uint balance1Adjusted = balance1.mul(1000).sub(amount1In.mul(3));
+        require(balance0Adjusted.mul(balance1Adjusted) >= uint(_reserve0).mul(_reserve1).mul(1000**2), 'HamswapV2: K');
         }
 
         _update(balance0, balance1, _reserve0, _reserve1);
