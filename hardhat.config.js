@@ -71,14 +71,23 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
         },
       },
       {
-        version: "0.8.4",
+        version: "0.6.12",
         settings: {
           optimizer: {
-            enabled: true, // for weth when testing
-            runs: 200,
+            enabled: true, // true for release, false is default for debug and test
+            runs: 1000,
           },
         },
-      }
+      },
+      // {
+      //   version: "0.8.4",
+      //   settings: {
+      //     optimizer: {
+      //       enabled: true, // for weth when testing
+      //       runs: 200,
+      //     },
+      //   },
+      // }
     ]
     
   },

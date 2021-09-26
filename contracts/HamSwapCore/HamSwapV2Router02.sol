@@ -1,11 +1,11 @@
-pragma solidity =0.6.12;
+pragma solidity >=0.6.12;
 
 import './interfaces/IHamSwapV2Factory.sol';
 import './libraries/TransferHelper.sol';
 
 import './interfaces/IHamSwapV2Router02.sol';
 import './libraries/HamSwapV2Library.sol';
-import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import './interfaces/IERC20.sol';
 import './interfaces/IWETH.sol';
 
 contract HamSwapV2Router02 is IHamSwapV2Router02 {
@@ -39,7 +39,7 @@ contract HamSwapV2Router02 is IHamSwapV2Router02 {
     ) internal virtual returns (uint amountA, uint amountB) {
         // create the pair if it doesn't exist yet
         if (IHamSwapV2Factory(factory).getPair(tokenA, tokenB) == address(0)) {
-            IHamSwapV2Factory(factory).createPair(tokenA, tokenB);
+            IHamSwapV2Factory(factory).createPair(tokenA, tokenB, 0);
         }
         (uint reserveA, uint reserveB) = HamSwapV2Library.getReserves(factory, tokenA, tokenB);
         if (reserveA == 0 && reserveB == 0) {

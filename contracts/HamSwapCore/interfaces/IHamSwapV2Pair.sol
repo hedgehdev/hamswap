@@ -1,6 +1,6 @@
 pragma solidity >=0.5.0;
 
-interface IHamswapV2Pair {
+interface IHamSwapV2Pair {
     event Approval(address indexed owner, address indexed spender, uint value);
     event Transfer(address indexed from, address indexed to, uint value);
 
@@ -48,5 +48,5 @@ interface IHamswapV2Pair {
     function skim(address to) external;
     function sync() external;
 
-    function initialize(address, address) external;
+    function initialize(address, address, uint) external;
 }
