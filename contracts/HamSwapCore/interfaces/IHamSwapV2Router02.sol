@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity >=0.6.0;
 
 import './IHamSwapV2Router01.sol';

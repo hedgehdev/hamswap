@@ -1,4 +1,5 @@
-pragma solidity >=0.6.12;
+// SPDX-License-Identifier: MIT
+pragma solidity =0.6.12;
 
 import './interfaces/IHamSwapV2Pair.sol';
 import './HamSwapV2ERC20.sol';
@@ -55,7 +56,7 @@ contract HamSwapV2Pair is HamSwapV2ERC20 {
         // TODO: check this is legal under any circumstance
         _real0 = reserve0 - virtual0;
         _real1 = reserve1 - virtual1;
-        require(_real0 <= reserve0 && _real1 <= reserve1, "negative");
+        require(_real0 <= reserve0 && _real1 <= reserve1, "HamSwapV2: negative bug");
     }
 
     function _safeTransfer(address token, address to, uint value) private {
@@ -103,15 +104,22 @@ contract HamSwapV2Pair is HamSwapV2ERC20 {
         blockTimestampLast = blockTimestamp;
         emit Sync(reserve0, reserve1);
     }
-    function _updateVirtual(uint balance0, uint balance1, uint112 _realReserve0, uint112 _realReserve1) private returns (uint _virtual0, uint _virtual1){
-        if (_realReserve0 != 0 && _realReserve1 != 0) {
-            _virtual0 = balance0.mul(virtual0) / _realReserve0;
-            _virtual1 = balance1.mul(virtual1) / _realReserve1;
+    function _updateVirtual(uint balance0, uint balance1, uint _liquidity, uint _supply, bool isMint) private returns (uint _virtual0, uint _virtual1){
+        if (isMint) {
+            if (_supply == 0) {
+                _virtual0 = balance0.mul(virt) / base;
+                _virtual1 = balance1.mul(virt) / base;
+            } else {
+                _virtual0 = uint(virtual0).mul(_liquidity) / _supply + virtual0;
+                _virtual1 = uint(virtual1).mul(_liquidity) / _supply + virtual1;
+            }
+            require(_virtual0.add(balance0) <= uint112(-1) && _virtual1.add(balance1) <= uint112(-1), "HamSwapV2: virt overflow");
+
         } else {
-            _virtual0 = balance0.mul(virt) / base;
-            _virtual1 = balance1.mul(virt) / base;
+            _virtual0 = virtual0 - uint(virtual0).mul(_liquidity) / _supply;
+            _virtual1 = virtual1 - uint(virtual1).mul(_liquidity) / _supply;
         }
-        require(_virtual0.add(balance0) <= uint112(-1) && _virtual1.add(balance1) <= uint112(-1), "HamSwapV2: virt overflow");
+
         virtual0 = uint112(_virtual0);
         virtual1 = uint112(_virtual1);
     }
@@ -158,11 +166,13 @@ contract HamSwapV2Pair is HamSwapV2ERC20 {
         require(liquidity > 0, 'HamSwapV2: INSUFFICIENT_LIQUIDITY_MINTED');
 
         if (virt != 0) {
-            (uint _virtual0, uint _virtual1) = _updateVirtual(balance0, balance1, _realReserve0, _realReserve1);
+            // balance0, balance1 meaning new real balance
+            (uint _virtual0, uint _virtual1) = _updateVirtual(balance0, balance1, liquidity, _totalSupply, true);
             balance0 = balance0.add(_virtual0);
             balance1 = balance1.add(_virtual1);
         }
 
+        // balance0, balance1 meaning new reserves
         _update(balance0, balance1, _reserve0, _reserve1);
 
         _mint(to, liquidity);
@@ -193,12 +203,13 @@ contract HamSwapV2Pair is HamSwapV2ERC20 {
         balance1 = IERC20(_token1).balanceOf(address(this));
 
         if (virt != 0) {
-            (uint112 _realReserve0, uint112 _realReserve1) = getRealReserves();
-            (uint _virtual0, uint _virtual1) = _updateVirtual(balance0, balance1, _realReserve0, _realReserve1);
+            // balance0, balance1 meaning new real balance
+            (uint _virtual0, uint _virtual1) = _updateVirtual(balance0, balance1, liquidity, _totalSupply, false);
             balance0 = balance0.add(_virtual0);
             balance1 = balance1.add(_virtual1);
         }
 
+        // balance0, balance1 meaning new reserves
         _update(balance0, balance1, _reserve0, _reserve1);
         if (feeOn) kLast = uint(reserve0).mul(reserve1); // reserve0 and reserve1 are up-to-date
         emit Burn(msg.sender, amount0, amount1, to);
@@ -222,8 +233,13 @@ contract HamSwapV2Pair is HamSwapV2ERC20 {
         if (amount0Out > 0) _safeTransfer(_token0, to, amount0Out); // optimistically transfer tokens
         if (amount1Out > 0) _safeTransfer(_token1, to, amount1Out); // optimistically transfer tokens
         if (data.length > 0) IHamSwapV2Callee(to).HamSwapV2Call(msg.sender, amount0Out, amount1Out, data);       
-        balance0 = IERC20(_token0).balanceOf(address(this)).add(virtual0);
-        balance1 = IERC20(_token1).balanceOf(address(this)).add(virtual1);
+        balance0 = IERC20(_token0).balanceOf(address(this));
+        balance1 = IERC20(_token1).balanceOf(address(this));
+        if (virt > 0) {
+            (uint112 _virtual0, uint112 _virtual1) = getVirtualReserves();
+            balance0 = balance0.add(_virtual0);
+            balance1 = balance0.add(_virtual1);
+        }
         }
         uint amount0In = balance0 > _reserve0 - amount0Out ? balance0 - (_reserve0 - amount0Out) : 0;
         uint amount1In = balance1 > _reserve1 - amount1Out ? balance1 - (_reserve1 - amount1Out) : 0;
@@ -242,14 +258,15 @@ contract HamSwapV2Pair is HamSwapV2ERC20 {
     function skim(address to) external lock {
         address _token0 = token0; // gas savings
         address _token1 = token1; // gas savings
-        _safeTransfer(_token0, to, IERC20(_token0).balanceOf(address(this)).sub(reserve0));
-        _safeTransfer(_token1, to, IERC20(_token1).balanceOf(address(this)).sub(reserve1));
-        // TODO: check if change virtual01
+        _safeTransfer(_token0, to, IERC20(_token0).balanceOf(address(this)).add(virtual0).sub(reserve0));
+        _safeTransfer(_token1, to, IERC20(_token1).balanceOf(address(this)).add(virtual1).sub(reserve1));
+        
     }
 
     // force reserves to match balances
     function sync() external lock {
-        _update(IERC20(token0).balanceOf(address(this)), IERC20(token1).balanceOf(address(this)), reserve0, reserve1);
         // TODO: check if change virtual01
+        _update(IERC20(token0).balanceOf(address(this)).add(virtual0), IERC20(token1).balanceOf(address(this)).add(virtual1), reserve0, reserve1);
+        
     }
 }
