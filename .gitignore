@@ -8,3 +8,4 @@ artifacts
 /package-lock.json
 /config/
 /contracts/hamswapcore/HamswapV2PairO*
+/build

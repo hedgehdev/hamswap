@@ -1,4 +1,4 @@
-import { Contract, Wallet, providers } from 'ethers'
+import { Contract, Wallet, providers, BigNumber } from 'ethers'
 import { deployContract } from 'ethereum-waffle'
 
 import { expandTo18Decimals } from './utilities'
@@ -43,4 +43,30 @@ export async function pairFixture([wallet]: Wallet[], provider: providers.Web3Pr
   const token1 = tokenA.address === token0Address ? tokenB : tokenA
 
   return { factory, token0, token1, pair }
+}
+
+
+interface HamPairFixture extends PairFixture {
+  virt : BigNumber
+}
+
+
+export async function pairFixture_rEqualsPoint1([wallet]: Wallet[], provider: providers.Web3Provider): Promise<HamPairFixture> {
+  const { factory } = await factoryFixture([wallet], provider)
+
+  const tokenA = await deployContract(wallet, TestHamSwapV2ERC20, [expandTo18Decimals(10000)], overrides)
+  const tokenB = await deployContract(wallet, TestHamSwapV2ERC20, [expandTo18Decimals(10000)], overrides)
+
+  const virtStr = "1000" // 0.1
+
+  await factory.createPair(tokenA.address, tokenB.address, virtStr, overrides)
+  const pairAddress = await factory.getPair(tokenA.address, tokenB.address)
+  const pair = new Contract(pairAddress, JSON.stringify(HamSwapV2Pair.abi), provider).connect(wallet)
+
+  const token0Address = (await pair.token0()).address
+  const token0 = tokenA.address === token0Address ? tokenA : tokenB
+  const token1 = tokenA.address === token0Address ? tokenB : tokenA
+
+  const virt = BigNumber.from(virtStr)
+  return { factory, token0, token1, pair, virt}
 }

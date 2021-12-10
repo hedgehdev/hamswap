@@ -7,5 +7,7 @@
 ## Compile Contracts
 
 `yarn compile`
+
 ## Testing
+
 `yarn test`

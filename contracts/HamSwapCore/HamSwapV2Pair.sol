@@ -28,7 +28,7 @@ contract HamSwapV2Pair is HamSwapV2ERC20 {
     uint public price1CumulativeLast;
     uint public kLast; // reserve0 * reserve1, as of immediately after the most recent liquidity event
 
-    uint public base;
+    uint public constant base = 10 ** 4;
     uint public virt; // virtual part = virt / base * real, acts like uniswap when virt = 0
     uint112 public virtual0;
     uint112 public virtual1;
@@ -157,7 +157,7 @@ contract HamSwapV2Pair is HamSwapV2ERC20 {
         bool feeOn = _mintFee(_reserve0, _reserve1);
         uint _totalSupply = totalSupply; // gas savings, must be defined here since totalSupply can update in _mintFee
         if (_totalSupply == 0) {
-            liquidity = Math.sqrt(amount0.mul(amount1)); // .sub(MINIMUM_LIQUIDITY);
+            liquidity = Math.sqrt(amount0.mul(amount1));
             liquidity = virt != 0 ? (liquidity.mul(virt + base) / base).sub(MINIMUM_LIQUIDITY) : liquidity.sub(MINIMUM_LIQUIDITY);
             _mint(address(0), MINIMUM_LIQUIDITY); // permanently lock the first MINIMUM_LIQUIDITY tokens
         } else {
@@ -238,7 +238,7 @@ contract HamSwapV2Pair is HamSwapV2ERC20 {
         if (virt > 0) {
             (uint112 _virtual0, uint112 _virtual1) = getVirtualReserves();
             balance0 = balance0.add(_virtual0);
-            balance1 = balance0.add(_virtual1);
+            balance1 = balance1.add(_virtual1);
         }
         }
         uint amount0In = balance0 > _reserve0 - amount0Out ? balance0 - (_reserve0 - amount0Out) : 0;
