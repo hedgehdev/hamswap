@@ -25,7 +25,7 @@ contract HamSwapV2Factory is IHamSwapV2Factory {
         require(token0 != address(0), 'HamSwapV2: ZERO_ADDRESS');
         require(getPair[token0][token1] == address(0), 'HamSwapV2: PAIR_EXISTS'); // single check is sufficient
         bytes memory bytecode = type(HamSwapV2Pair).creationCode;
-        bytes32 salt = keccak256(abi.encodePacked(token0, token1));
+        bytes32 salt = keccak256(abi.encodePacked(token0, token1, virt));
         assembly {
             pair := create2(0, add(bytecode, 32), mload(bytecode), salt)
         }

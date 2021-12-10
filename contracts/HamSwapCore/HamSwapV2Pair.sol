@@ -265,7 +265,6 @@ contract HamSwapV2Pair is HamSwapV2ERC20 {
 
     // force reserves to match balances
     function sync() external lock {
-        // TODO: check if change virtual01
         _update(IERC20(token0).balanceOf(address(this)).add(virtual0), IERC20(token1).balanceOf(address(this)).add(virtual1), reserve0, reserve1);
         
     }

@@ -1,15 +1,11 @@
 # Hamswap
 
-Half virtual Automatic Market making swap protocol
+## Install Dependencies
 
-Try running some of the following tasks:
+`yarn`
 
-```shell
-npx hardhat accounts
-npx hardhat compile
-npx hardhat clean
-npx hardhat test
-npx hardhat node
-node scripts/sample-script.js
-npx hardhat help
-```
+## Compile Contracts
+
+`yarn compile`
+## Testing
+`yarn test`
