@@ -43,12 +43,12 @@ describe('HamSwapV2Factory', () => {
     const create2Address = getCreate2Address(factory.address, tokens, bytecode)
     await expect(factory.createPair(...tokens))
       .to.emit(factory, 'PairCreated')
-      .withArgs(TEST_ADDRESSES[0], TEST_ADDRESSES[1], create2Address, BigNumber.from(1))
+      .withArgs(TEST_ADDRESSES[0], TEST_ADDRESSES[1], TEST_ADDRESSES[2], create2Address, BigNumber.from(1))
 
     await expect(factory.createPair(...tokens)).to.be.reverted // HamSwapV2: PAIR_EXISTS
     await expect(factory.createPair([...tokens.slice(0, 2).reverse(), tokens[2]])).to.be.reverted // HamSwapV2: PAIR_EXISTS
-    expect(await factory.getPair(...tokens.slice(0, 2))).to.eq(create2Address)
-    expect(await factory.getPair(...tokens.slice(0, 2).reverse())).to.eq(create2Address)
+    expect(await factory.getPair(...tokens.slice(0, 2), 0)).to.eq(create2Address)
+    expect(await factory.getPair(...tokens.slice(0, 2).reverse(), 0)).to.eq(create2Address)
     expect(await factory.allPairs(0)).to.eq(create2Address)
     expect(await factory.allPairsLength()).to.eq(1)
 

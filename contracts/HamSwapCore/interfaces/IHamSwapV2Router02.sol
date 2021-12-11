@@ -10,7 +10,8 @@ interface IHamSwapV2Router02 is IHamSwapV2Router01 {
         uint amountTokenMin,
         uint amountETHMin,
         address to,
-        uint deadline
+        uint deadline,
+        uint virt
     ) external returns (uint amountETH);
     function removeLiquidityETHWithPermitSupportingFeeOnTransferTokens(
         address token,
@@ -19,7 +20,8 @@ interface IHamSwapV2Router02 is IHamSwapV2Router01 {
         uint amountETHMin,
         address to,
         uint deadline,
-        bool approveMax, uint8 v, bytes32 r, bytes32 s
+        bool approveMax, uint8 v, bytes32 r, bytes32 s,
+        uint virt
     ) external returns (uint amountETH);
 
 /*

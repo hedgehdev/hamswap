@@ -345,7 +345,8 @@ describe('HamSwapV2Pair works well with r = 0.1', () => {
     await token0.transfer(pair.address, swapAmount)
     await mineBlock(provider, blockTimestamp + 10)
     // swap to a new price eagerly instead of syncing
-    await pair.swap(0, expandTo18Decimals(1), wallet.address, '0x', overrides) // make the price nice
+    const out1Amount = expandTo18Decimals(1)
+    await pair.swap(0, out1Amount, wallet.address, '0x', overrides) // make the price nice
 
     expect(await pair.price0CumulativeLast()).to.eq(initialPrice[0].mul(10))
     expect(await pair.price1CumulativeLast()).to.eq(initialPrice[1].mul(10))
@@ -354,7 +355,7 @@ describe('HamSwapV2Pair works well with r = 0.1', () => {
     await mineBlock(provider, blockTimestamp + 20)
     await pair.sync(overrides)
 
-    const newPrice = encodePrice(r0.add(swapAmount), r1.sub(expandTo18Decimals(1)))
+    const newPrice = encodePrice(r0.add(swapAmount), r1.sub(out1Amount))
     expect(await pair.price0CumulativeLast()).to.eq(initialPrice[0].mul(10).add(newPrice[0].mul(10)))
     expect(await pair.price1CumulativeLast()).to.eq(initialPrice[1].mul(10).add(newPrice[1].mul(10)))
     expect((await pair.getReserves())[2]).to.eq(blockTimestamp + 20)

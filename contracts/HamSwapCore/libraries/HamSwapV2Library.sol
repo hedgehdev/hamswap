@@ -16,20 +16,20 @@ library HamSwapV2Library {
     }
 
     // calculates the CREATE2 address for a pair without making any external calls
-    function pairFor(address factory, address tokenA, address tokenB) internal pure returns (address pair) {
+    function pairFor(address factory, address tokenA, address tokenB, uint virt) internal pure returns (address pair) {
         (address token0, address token1) = sortTokens(tokenA, tokenB);
         pair = address(uint(keccak256(abi.encodePacked(
                 hex'ff',
                 factory,
-                keccak256(abi.encodePacked(token0, token1)),
+                keccak256(abi.encodePacked(token0, token1, virt)),
                 hex'5648dac156e6a11a3e5d8490b7ea082913b6a97a1cd9a2b746dbedb1d922f6a8' // init code hash
             ))));
     }
 
     // fetches and sorts the reserves for a pair
-    function getReserves(address factory, address tokenA, address tokenB) internal view returns (uint reserveA, uint reserveB) {
+    function getReserves(address factory, address tokenA, address tokenB, uint virt) internal view returns (uint reserveA, uint reserveB) {
         (address token0,) = sortTokens(tokenA, tokenB);
-        (uint reserve0, uint reserve1,) = IHamSwapV2Pair(pairFor(factory, tokenA, tokenB)).getReserves();
+        (uint reserve0, uint reserve1,) = IHamSwapV2Pair(pairFor(factory, tokenA, tokenB, virt)).getReserves();
         (reserveA, reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
     }
 
@@ -60,23 +60,25 @@ library HamSwapV2Library {
     }
 
     // performs chained getAmountOut calculations on any number of pairs
-    function getAmountsOut(address factory, uint amountIn, address[] memory path) internal view returns (uint[] memory amounts) {
+    function getAmountsOut(address factory, uint amountIn, address[] memory path, uint[] memory virts) internal view returns (uint[] memory amounts) {
         require(path.length >= 2, 'HamSwapV2Library: INVALID_PATH');
+        require(path.length == virts.length + 1, "HamSwapV2Library: INVALID_VIRT");
         amounts = new uint[](path.length);
         amounts[0] = amountIn;
         for (uint i; i < path.length - 1; i++) {
-            (uint reserveIn, uint reserveOut) = getReserves(factory, path[i], path[i + 1]);
+            (uint reserveIn, uint reserveOut) = getReserves(factory, path[i], path[i + 1], virts[i]);
             amounts[i + 1] = getAmountOut(amounts[i], reserveIn, reserveOut);
         }
     }
 
     // performs chained getAmountIn calculations on any number of pairs
-    function getAmountsIn(address factory, uint amountOut, address[] memory path) internal view returns (uint[] memory amounts) {
+    function getAmountsIn(address factory, uint amountOut, address[] memory path, uint[] memory virts) internal view returns (uint[] memory amounts) {
         require(path.length >= 2, 'HamSwapV2Library: INVALID_PATH');
+        require(path.length == virts.length + 1, "HamSwapV2Library: INVALID_VIRT");
         amounts = new uint[](path.length);
         amounts[amounts.length - 1] = amountOut;
         for (uint i = path.length - 1; i > 0; i--) {
-            (uint reserveIn, uint reserveOut) = getReserves(factory, path[i - 1], path[i]);
+            (uint reserveIn, uint reserveOut) = getReserves(factory, path[i - 1], path[i], virts[i - 1]);
             amounts[i - 1] = getAmountIn(amounts[i], reserveIn, reserveOut);
         }
     }

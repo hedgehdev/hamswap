@@ -36,13 +36,14 @@ contract HamSwapV2Router02 is IHamSwapV2Router02 {
         uint amountADesired,
         uint amountBDesired,
         uint amountAMin,
-        uint amountBMin
+        uint amountBMin,
+        uint virt
     ) internal virtual returns (uint amountA, uint amountB) {
         // create the pair if it doesn't exist yet
-        if (IHamSwapV2Factory(factory).getPair(tokenA, tokenB) == address(0)) {
-            IHamSwapV2Factory(factory).createPair(tokenA, tokenB, 0);
+        if (IHamSwapV2Factory(factory).getPair(tokenA, tokenB, virt) == address(0)) {
+            IHamSwapV2Factory(factory).createPair(tokenA, tokenB, virt);
         }
-        (uint reserveA, uint reserveB) = HamSwapV2Library.getReserves(factory, tokenA, tokenB);
+        (uint reserveA, uint reserveB) = HamSwapV2Library.getReserves(factory, tokenA, tokenB, virt);
         if (reserveA == 0 && reserveB == 0) {
             (amountA, amountB) = (amountADesired, amountBDesired);
         } else {
@@ -66,10 +67,11 @@ contract HamSwapV2Router02 is IHamSwapV2Router02 {
         uint amountAMin,
         uint amountBMin,
         address to,
-        uint deadline
+        uint deadline,
+        uint virt
     ) external virtual override ensure(deadline) returns (uint amountA, uint amountB, uint liquidity) {
-        (amountA, amountB) = _addLiquidity(tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin);
-        address pair = HamSwapV2Library.pairFor(factory, tokenA, tokenB);
+        (amountA, amountB) = _addLiquidity(tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin, virt);
+        address pair = HamSwapV2Library.pairFor(factory, tokenA, tokenB, virt);
         TransferHelper.safeTransferFrom(tokenA, msg.sender, pair, amountA);
         TransferHelper.safeTransferFrom(tokenB, msg.sender, pair, amountB);
         liquidity = IHamSwapV2Pair(pair).mint(to);
@@ -80,7 +82,8 @@ contract HamSwapV2Router02 is IHamSwapV2Router02 {
         uint amountTokenMin,
         uint amountETHMin,
         address to,
-        uint deadline
+        uint deadline,
+        uint virt
     ) external virtual override payable ensure(deadline) returns (uint amountToken, uint amountETH, uint liquidity) {
         (amountToken, amountETH) = _addLiquidity(
             token,
@@ -88,9 +91,10 @@ contract HamSwapV2Router02 is IHamSwapV2Router02 {
             amountTokenDesired,
             msg.value,
             amountTokenMin,
-            amountETHMin
+            amountETHMin,
+            virt
         );
-        address pair = HamSwapV2Library.pairFor(factory, token, WETH);
+        address pair = HamSwapV2Library.pairFor(factory, token, WETH, virt);
         TransferHelper.safeTransferFrom(token, msg.sender, pair, amountToken);
         IWETH(WETH).deposit{value: amountETH}();
         assert(IWETH(WETH).transfer(pair, amountETH));
@@ -107,9 +111,10 @@ contract HamSwapV2Router02 is IHamSwapV2Router02 {
         uint amountAMin,
         uint amountBMin,
         address to,
-        uint deadline
+        uint deadline,
+        uint virt
     ) public virtual override ensure(deadline) returns (uint amountA, uint amountB) {
-        address pair = HamSwapV2Library.pairFor(factory, tokenA, tokenB);
+        address pair = HamSwapV2Library.pairFor(factory, tokenA, tokenB, virt);
         IHamSwapV2Pair(pair).transferFrom(msg.sender, pair, liquidity); // send liquidity to pair
         (uint amount0, uint amount1) = IHamSwapV2Pair(pair).burn(to);
         (address token0,) = HamSwapV2Library.sortTokens(tokenA, tokenB);
@@ -123,7 +128,8 @@ contract HamSwapV2Router02 is IHamSwapV2Router02 {
         uint amountTokenMin,
         uint amountETHMin,
         address to,
-        uint deadline
+        uint deadline,
+        uint virt
     ) public virtual override ensure(deadline) returns (uint amountToken, uint amountETH) {
         (amountToken, amountETH) = removeLiquidity(
             token,
@@ -132,26 +138,39 @@ contract HamSwapV2Router02 is IHamSwapV2Router02 {
             amountTokenMin,
             amountETHMin,
             address(this),
-            deadline
+            deadline,
+            virt
         );
         TransferHelper.safeTransfer(token, to, amountToken);
         IWETH(WETH).withdraw(amountETH);
         TransferHelper.safeTransferETH(to, amountETH);
     }
     function removeLiquidityWithPermit(
-        address tokenA,
-        address tokenB,
+        // address tokenA,
+        // address tokenB,
+        address[2] calldata tokens,
         uint liquidity,
-        uint amountAMin,
-        uint amountBMin,
+        // uint amountAMin,
+        // uint amountBMin,
+        uint[2] calldata amounts,
         address to,
         uint deadline,
-        bool approveMax, uint8 v, bytes32 r, bytes32 s
+        bool approveMax, uint8 v, bytes32 r, bytes32 s,
+        uint virt
     ) external virtual override returns (uint amountA, uint amountB) {
-        address pair = HamSwapV2Library.pairFor(factory, tokenA, tokenB);
-        uint value = approveMax ? uint(-1) : liquidity;
-        IHamSwapV2Pair(pair).permit(msg.sender, address(this), value, deadline, v, r, s);
-        (amountA, amountB) = removeLiquidity(tokenA, tokenB, liquidity, amountAMin, amountBMin, to, deadline);
+        // {
+        // address pair = HamSwapV2Library.pairFor(factory, tokens[0], tokens[1], virt);
+        IHamSwapV2Pair(
+            HamSwapV2Library.pairFor(factory, tokens[0], tokens[1], virt)
+        ).permit(
+            msg.sender, 
+            address(this), 
+            approveMax ? uint(-1) : liquidity, 
+            deadline, 
+            v, r, s
+        );
+        // }
+        (amountA, amountB) = removeLiquidity(tokens[0], tokens[1], liquidity, amounts[0], amounts[1], to, deadline, virt);
     }
     function removeLiquidityETHWithPermit(
         address token,
@@ -160,12 +179,15 @@ contract HamSwapV2Router02 is IHamSwapV2Router02 {
         uint amountETHMin,
         address to,
         uint deadline,
-        bool approveMax, uint8 v, bytes32 r, bytes32 s
+        bool approveMax, uint8 v, bytes32 r, bytes32 s,
+        uint virt
     ) external virtual override returns (uint amountToken, uint amountETH) {
-        address pair = HamSwapV2Library.pairFor(factory, token, WETH);
+        {
+        address pair = HamSwapV2Library.pairFor(factory, token, WETH, virt);
         uint value = approveMax ? uint(-1) : liquidity;
         IHamSwapV2Pair(pair).permit(msg.sender, address(this), value, deadline, v, r, s);
-        (amountToken, amountETH) = removeLiquidityETH(token, liquidity, amountTokenMin, amountETHMin, to, deadline);
+        }
+        (amountToken, amountETH) = removeLiquidityETH(token, liquidity, amountTokenMin, amountETHMin, to, deadline, virt);
     }
 
     // **** REMOVE LIQUIDITY (supporting fee-on-transfer tokens) ****
@@ -175,7 +197,8 @@ contract HamSwapV2Router02 is IHamSwapV2Router02 {
         uint amountTokenMin,
         uint amountETHMin,
         address to,
-        uint deadline
+        uint deadline,
+        uint virt
     ) public virtual override ensure(deadline) returns (uint amountETH) {
         (, amountETH) = removeLiquidity(
             token,
@@ -184,7 +207,8 @@ contract HamSwapV2Router02 is IHamSwapV2Router02 {
             amountTokenMin,
             amountETHMin,
             address(this),
-            deadline
+            deadline,
+            virt
         );
         TransferHelper.safeTransfer(token, to, IERC20(token).balanceOf(address(this)));
         IWETH(WETH).withdraw(amountETH);
@@ -197,26 +221,27 @@ contract HamSwapV2Router02 is IHamSwapV2Router02 {
         uint amountETHMin,
         address to,
         uint deadline,
-        bool approveMax, uint8 v, bytes32 r, bytes32 s
+        bool approveMax, uint8 v, bytes32 r, bytes32 s,
+        uint virt
     ) external virtual override returns (uint amountETH) {
-        address pair = HamSwapV2Library.pairFor(factory, token, WETH);
+        address pair = HamSwapV2Library.pairFor(factory, token, WETH, virt);
         uint value = approveMax ? uint(-1) : liquidity;
         IHamSwapV2Pair(pair).permit(msg.sender, address(this), value, deadline, v, r, s);
         amountETH = removeLiquidityETHSupportingFeeOnTransferTokens(
-            token, liquidity, amountTokenMin, amountETHMin, to, deadline
+            token, liquidity, amountTokenMin, amountETHMin, to, deadline, virt
         );
     }
 
     // **** SWAP ****
     // requires the initial amount to have already been sent to the first pair
-    function _swap(uint[] memory amounts, address[] memory path, address _to) internal virtual {
+    function _swap(uint[] memory amounts, address[] memory path, uint[] memory virts, address _to) internal virtual {
         for (uint i; i < path.length - 1; i++) {
             (address input, address output) = (path[i], path[i + 1]);
             (address token0,) = HamSwapV2Library.sortTokens(input, output);
             uint amountOut = amounts[i + 1];
             (uint amount0Out, uint amount1Out) = input == token0 ? (uint(0), amountOut) : (amountOut, uint(0));
-            address to = i < path.length - 2 ? HamSwapV2Library.pairFor(factory, output, path[i + 2]) : _to;
-            IHamSwapV2Pair(HamSwapV2Library.pairFor(factory, input, output)).swap(
+            address to = i < path.length - 2 ? HamSwapV2Library.pairFor(factory, output, path[i + 2], virts[i]) : _to;
+            IHamSwapV2Pair(HamSwapV2Library.pairFor(factory, input, output, virts[i])).swap(
                 amount0Out, amount1Out, to, new bytes(0)
             );
         }
@@ -225,31 +250,33 @@ contract HamSwapV2Router02 is IHamSwapV2Router02 {
         uint amountIn,
         uint amountOutMin,
         address[] calldata path,
+        uint[] calldata virts,
         address to,
         uint deadline
     ) external virtual override ensure(deadline) returns (uint[] memory amounts) {
-        amounts = HamSwapV2Library.getAmountsOut(factory, amountIn, path);
+        amounts = HamSwapV2Library.getAmountsOut(factory, amountIn, path, virts);
         require(amounts[amounts.length - 1] >= amountOutMin, 'HamSwapV2Router: INSUFFICIENT_OUTPUT_AMOUNT');
         TransferHelper.safeTransferFrom(
-            path[0], msg.sender, HamSwapV2Library.pairFor(factory, path[0], path[1]), amounts[0]
+            path[0], msg.sender, HamSwapV2Library.pairFor(factory, path[0], path[1], virts[0]), amounts[0]
         );
-        _swap(amounts, path, to);
+        _swap(amounts, path, virts, to);
     }
     function swapTokensForExactTokens(
         uint amountOut,
         uint amountInMax,
         address[] calldata path,
+        uint[] calldata virts,
         address to,
         uint deadline
     ) external virtual override ensure(deadline) returns (uint[] memory amounts) {
-        amounts = HamSwapV2Library.getAmountsIn(factory, amountOut, path);
+        amounts = HamSwapV2Library.getAmountsIn(factory, amountOut, path, virts);
         require(amounts[0] <= amountInMax, 'HamSwapV2Router: EXCESSIVE_INPUT_AMOUNT');
         TransferHelper.safeTransferFrom(
-            path[0], msg.sender, HamSwapV2Library.pairFor(factory, path[0], path[1]), amounts[0]
+            path[0], msg.sender, HamSwapV2Library.pairFor(factory, path[0], path[1], virts[0]), amounts[0]
         );
-        _swap(amounts, path, to);
+        _swap(amounts, path, virts, to);
     }
-    function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline)
+    function swapExactETHForTokens(uint amountOutMin, address[] calldata path, uint[] calldata virts, address to, uint deadline)
         external
         virtual
         override
@@ -258,13 +285,13 @@ contract HamSwapV2Router02 is IHamSwapV2Router02 {
         returns (uint[] memory amounts)
     {
         require(path[0] == WETH, 'HamSwapV2Router: INVALID_PATH');
-        amounts = HamSwapV2Library.getAmountsOut(factory, msg.value, path);
+        amounts = HamSwapV2Library.getAmountsOut(factory, msg.value, path, virts);
         require(amounts[amounts.length - 1] >= amountOutMin, 'HamSwapV2Router: INSUFFICIENT_OUTPUT_AMOUNT');
         IWETH(WETH).deposit{value: amounts[0]}();
-        assert(IWETH(WETH).transfer(HamSwapV2Library.pairFor(factory, path[0], path[1]), amounts[0]));
-        _swap(amounts, path, to);
+        assert(IWETH(WETH).transfer(HamSwapV2Library.pairFor(factory, path[0], path[1], virts[0]), amounts[0]));
+        _swap(amounts, path, virts, to);
     }
-    function swapTokensForExactETH(uint amountOut, uint amountInMax, address[] calldata path, address to, uint deadline)
+    function swapTokensForExactETH(uint amountOut, uint amountInMax, address[] calldata path, uint[] calldata virts, address to, uint deadline)
         external
         virtual
         override
@@ -272,16 +299,16 @@ contract HamSwapV2Router02 is IHamSwapV2Router02 {
         returns (uint[] memory amounts)
     {
         require(path[path.length - 1] == WETH, 'HamSwapV2Router: INVALID_PATH');
-        amounts = HamSwapV2Library.getAmountsIn(factory, amountOut, path);
+        amounts = HamSwapV2Library.getAmountsIn(factory, amountOut, path, virts);
         require(amounts[0] <= amountInMax, 'HamSwapV2Router: EXCESSIVE_INPUT_AMOUNT');
         TransferHelper.safeTransferFrom(
-            path[0], msg.sender, HamSwapV2Library.pairFor(factory, path[0], path[1]), amounts[0]
+            path[0], msg.sender, HamSwapV2Library.pairFor(factory, path[0], path[1], virts[0]), amounts[0]
         );
-        _swap(amounts, path, address(this));
+        _swap(amounts, path, virts, address(this));
         IWETH(WETH).withdraw(amounts[amounts.length - 1]);
         TransferHelper.safeTransferETH(to, amounts[amounts.length - 1]);
     }
-    function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline)
+    function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, uint[] calldata virts, address to, uint deadline)
         external
         virtual
         override
@@ -289,16 +316,16 @@ contract HamSwapV2Router02 is IHamSwapV2Router02 {
         returns (uint[] memory amounts)
     {
         require(path[path.length - 1] == WETH, 'HamSwapV2Router: INVALID_PATH');
-        amounts = HamSwapV2Library.getAmountsOut(factory, amountIn, path);
+        amounts = HamSwapV2Library.getAmountsOut(factory, amountIn, path, virts);
         require(amounts[amounts.length - 1] >= amountOutMin, 'HamSwapV2Router: INSUFFICIENT_OUTPUT_AMOUNT');
         TransferHelper.safeTransferFrom(
-            path[0], msg.sender, HamSwapV2Library.pairFor(factory, path[0], path[1]), amounts[0]
+            path[0], msg.sender, HamSwapV2Library.pairFor(factory, path[0], path[1], virts[0]), amounts[0]
         );
-        _swap(amounts, path, address(this));
+        _swap(amounts, path, virts, address(this));
         IWETH(WETH).withdraw(amounts[amounts.length - 1]);
         TransferHelper.safeTransferETH(to, amounts[amounts.length - 1]);
     }
-    function swapETHForExactTokens(uint amountOut, address[] calldata path, address to, uint deadline)
+    function swapETHForExactTokens(uint amountOut, address[] calldata path, uint[] calldata virts, address to, uint deadline)
         external
         virtual
         override
@@ -307,11 +334,11 @@ contract HamSwapV2Router02 is IHamSwapV2Router02 {
         returns (uint[] memory amounts)
     {
         require(path[0] == WETH, 'HamSwapV2Router: INVALID_PATH');
-        amounts = HamSwapV2Library.getAmountsIn(factory, amountOut, path);
+        amounts = HamSwapV2Library.getAmountsIn(factory, amountOut, path, virts);
         require(amounts[0] <= msg.value, 'HamSwapV2Router: EXCESSIVE_INPUT_AMOUNT');
         IWETH(WETH).deposit{value: amounts[0]}();
-        assert(IWETH(WETH).transfer(HamSwapV2Library.pairFor(factory, path[0], path[1]), amounts[0]));
-        _swap(amounts, path, to);
+        assert(IWETH(WETH).transfer(HamSwapV2Library.pairFor(factory, path[0], path[1], virts[0]), amounts[0]));
+        _swap(amounts, path, virts, to);
         // refund dust eth, if any
         if (msg.value > amounts[0]) TransferHelper.safeTransferETH(msg.sender, msg.value - amounts[0]);
     }
@@ -425,23 +452,23 @@ contract HamSwapV2Router02 is IHamSwapV2Router02 {
         return HamSwapV2Library.getAmountIn(amountOut, reserveIn, reserveOut);
     }
 
-    function getAmountsOut(uint amountIn, address[] memory path)
+    function getAmountsOut(uint amountIn, address[] memory path, uint[] memory virts)
         public
         view
         virtual
         override
         returns (uint[] memory amounts)
     {
-        return HamSwapV2Library.getAmountsOut(factory, amountIn, path);
+        return HamSwapV2Library.getAmountsOut(factory, amountIn, path, virts);
     }
 
-    function getAmountsIn(uint amountOut, address[] memory path)
+    function getAmountsIn(uint amountOut, address[] memory path, uint[] memory virts)
         public
         view
         virtual
         override
         returns (uint[] memory amounts)
     {
-        return HamSwapV2Library.getAmountsIn(factory, amountOut, path);
+        return HamSwapV2Library.getAmountsIn(factory, amountOut, path, virts);
     }
 }
