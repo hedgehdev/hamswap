@@ -11,3 +11,5 @@
 ## Testing
 
 `yarn test`
+
+`yarn mocha -g "feeTo:off:hamm"`

@@ -5,7 +5,7 @@ import { solidity, MockProvider, createFixtureLoader } from 'ethereum-waffle'
 import { expandTo18Decimals, encodePrice } from '../shared/utilities'
 import { pairFixture_rEqualsPoint1 } from '../shared/fixtures'
 import { mineBlock } from '../utils'
-import { TypeOutput } from 'ethereumjs-util'
+import { toType, TypeOutput } from 'ethereumjs-util'
 
 const MINIMUM_LIQUIDITY = BigNumber.from(10).pow(3)
 
@@ -324,76 +324,112 @@ describe('HamSwapV2Pair works well with r = 0.1', () => {
     ))
   })
 
-  // it('price{0,1}CumulativeLast', async () => {
-  //   const token0Amount = expandTo18Decimals(3)
-  //   const token1Amount = expandTo18Decimals(3)
-  //   await addLiquidity(token0Amount, token1Amount)
+  it('cumulativeLast:hamm', async () => {
+    const token0Amount = expandTo18Decimals(3)
+    const token1Amount = expandTo18Decimals(3)
+    await addLiquidity(token0Amount, token1Amount)
+    
+    const r0 = token0Amount.add(token0Amount.mul(virt).div(base))
+    const r1 = token1Amount.add(token1Amount.mul(virt).div(base))
 
-  //   const blockTimestamp = (await pair.getReserves())[2]
-  //   await mineBlock(provider, blockTimestamp + 1)
-  //   await pair.sync(overrides)
+    const blockTimestamp = (await pair.getReserves())[2]
+    await mineBlock(provider, blockTimestamp + 1)
+    await pair.sync(overrides)
 
-  //   const initialPrice = encodePrice(token0Amount, token1Amount)
-  //   expect(await pair.price0CumulativeLast()).to.eq(initialPrice[0])
-  //   expect(await pair.price1CumulativeLast()).to.eq(initialPrice[1])
-  //   expect((await pair.getReserves())[2]).to.eq(blockTimestamp + 1)
+    const initialPrice = encodePrice(r0, r1)
+    expect(await pair.price0CumulativeLast()).to.eq(initialPrice[0])
+    expect(await pair.price1CumulativeLast()).to.eq(initialPrice[1])
+    expect((await pair.getReserves())[2]).to.eq(blockTimestamp + 1)
 
-  //   const swapAmount = expandTo18Decimals(3)
-  //   await token0.transfer(pair.address, swapAmount)
-  //   await mineBlock(provider, blockTimestamp + 10)
-  //   // swap to a new price eagerly instead of syncing
-  //   await pair.swap(0, expandTo18Decimals(1), wallet.address, '0x', overrides) // make the price nice
+    const swapAmount = expandTo18Decimals(3)
+    await token0.transfer(pair.address, swapAmount)
+    await mineBlock(provider, blockTimestamp + 10)
+    // swap to a new price eagerly instead of syncing
+    await pair.swap(0, expandTo18Decimals(1), wallet.address, '0x', overrides) // make the price nice
 
-  //   expect(await pair.price0CumulativeLast()).to.eq(initialPrice[0].mul(10))
-  //   expect(await pair.price1CumulativeLast()).to.eq(initialPrice[1].mul(10))
-  //   expect((await pair.getReserves())[2]).to.eq(blockTimestamp + 10)
+    expect(await pair.price0CumulativeLast()).to.eq(initialPrice[0].mul(10))
+    expect(await pair.price1CumulativeLast()).to.eq(initialPrice[1].mul(10))
+    expect((await pair.getReserves())[2]).to.eq(blockTimestamp + 10)
 
-  //   await mineBlock(provider, blockTimestamp + 20)
-  //   await pair.sync(overrides)
+    await mineBlock(provider, blockTimestamp + 20)
+    await pair.sync(overrides)
 
-  //   const newPrice = encodePrice(expandTo18Decimals(6), expandTo18Decimals(2))
-  //   expect(await pair.price0CumulativeLast()).to.eq(initialPrice[0].mul(10).add(newPrice[0].mul(10)))
-  //   expect(await pair.price1CumulativeLast()).to.eq(initialPrice[1].mul(10).add(newPrice[1].mul(10)))
-  //   expect((await pair.getReserves())[2]).to.eq(blockTimestamp + 20)
-  // })
+    const newPrice = encodePrice(r0.add(swapAmount), r1.sub(expandTo18Decimals(1)))
+    expect(await pair.price0CumulativeLast()).to.eq(initialPrice[0].mul(10).add(newPrice[0].mul(10)))
+    expect(await pair.price1CumulativeLast()).to.eq(initialPrice[1].mul(10).add(newPrice[1].mul(10)))
+    expect((await pair.getReserves())[2]).to.eq(blockTimestamp + 20)
+  })
 
-  // it('feeTo:off', async () => {
-  //   const token0Amount = expandTo18Decimals(1000)
-  //   const token1Amount = expandTo18Decimals(1000)
-  //   await addLiquidity(token0Amount, token1Amount)
+  it('feeTo:off:hamm', async () => {
+    const token0Amount = expandTo18Decimals(1000)
+    const token1Amount = expandTo18Decimals(1000)
+    await addLiquidity(token0Amount, token1Amount)
+    
+    const expectedLiquidity = calcExpectedLiquidity(constants.Zero, constants.Zero, token0Amount, token1Amount, constants.Zero)
 
-  //   const swapAmount = expandTo18Decimals(1)
-  //   const expectedOutputAmount = BigNumber.from('996006981039903216')
-  //   await token1.transfer(pair.address, swapAmount)
-  //   await pair.swap(expectedOutputAmount, 0, wallet.address, '0x', overrides)
+    const r0 = token0Amount.add(token0Amount.mul(virt).div(base))
+    const r1 = token1Amount.add(token1Amount.mul(virt).div(base))
+    
 
-  //   const expectedLiquidity = expandTo18Decimals(1000)
-  //   await pair.transfer(pair.address, expectedLiquidity.sub(MINIMUM_LIQUIDITY))
-  //   await pair.burn(wallet.address, overrides)
-  //   expect(await pair.totalSupply()).to.eq(MINIMUM_LIQUIDITY)
-  // })
+    const swapAmount = expandTo18Decimals(1)
+    const expectedOutputAmount = getAmountOut(swapAmount, r1, r0)
+    await token1.transfer(pair.address, swapAmount)
+    await pair.swap(expectedOutputAmount, 0, wallet.address, '0x', overrides)
 
-  // it('feeTo:on', async () => {
-  //   await factory.setFeeTo(other.address)
+    await pair.transfer(pair.address, expectedLiquidity.sub(MINIMUM_LIQUIDITY))
+    await pair.burn(wallet.address, overrides)
+    expect(await pair.totalSupply()).to.eq(MINIMUM_LIQUIDITY)
+  })
 
-  //   const token0Amount = expandTo18Decimals(1000)
-  //   const token1Amount = expandTo18Decimals(1000)
-  //   await addLiquidity(token0Amount, token1Amount)
+  let calLiquidityFee = function(reserve0: BigNumber, reserve1: BigNumber, kLast: BigNumber, supply: BigNumber) {
+    let output: BigNumber = BigNumber.from(0)
+    const liquidityFee = BigNumber.from(1)
+    const liquidityFeeBase = BigNumber.from(6) 
+    let rootK = sqrt(reserve0.mul(reserve1))
+    let rootKLast = sqrt(kLast)
+    if (rootK.gt(rootKLast)) {
+      let numerator = supply.mul(rootK.sub(rootKLast))
+      let denominator = liquidityFeeBase.sub(liquidityFee).mul(rootK).add(
+        liquidityFee.mul(rootKLast)
+      )
+      output = numerator.div(denominator)
+    }
+    return output
+  }
 
-  //   const swapAmount = expandTo18Decimals(1)
-  //   const expectedOutputAmount = BigNumber.from('996006981039903216')
-  //   await token1.transfer(pair.address, swapAmount)
-  //   await pair.swap(expectedOutputAmount, 0, wallet.address, '0x', overrides)
+  let calcPairRemaingsAfterRemove = function (r0: BigNumber, r1: BigNumber, supply: BigNumber, remove: BigNumber) {
+    let remain0: BigNumber
+    let remain1: BigNumber
+    remain0 = r0.sub(r0.mul(remove).div(supply))
+    remain1 = r1.sub(r1.mul(remove).div(supply))
+    return {remain0, remain1}
+  }
+  it('feeTo:on:hamm', async () => {
+    await factory.setFeeTo(other.address)
 
-  //   const expectedLiquidity = expandTo18Decimals(1000)
-  //   await pair.transfer(pair.address, expectedLiquidity.sub(MINIMUM_LIQUIDITY))
-  //   await pair.burn(wallet.address, overrides)
-  //   expect(await pair.totalSupply()).to.eq(MINIMUM_LIQUIDITY.add('249750499251388'))
-  //   expect(await pair.balanceOf(other.address)).to.eq('249750499251388')
+    const token0Amount = expandTo18Decimals(1000)
+    const token1Amount = expandTo18Decimals(1000)
+    await addLiquidity(token0Amount, token1Amount)
+    const expectedLiquidity = calcExpectedLiquidity(constants.Zero, constants.Zero, token0Amount, token1Amount, constants.Zero)
+    
+    const r0 = token0Amount.add(token0Amount.mul(virt).div(base))
+    const r1 = token1Amount.add(token1Amount.mul(virt).div(base))
+    
+    const swapAmount = expandTo18Decimals(1)
+    const expectedOutputAmount = getAmountOut(swapAmount, r1, r0)
+    await token1.transfer(pair.address, swapAmount)
+    await pair.swap(expectedOutputAmount, 0, wallet.address, '0x', overrides)
 
-  //   // using 1000 here instead of the symbolic MINIMUM_LIQUIDITY because the amounts only happen to be equal...
-  //   // ...because the initial liquidity amounts were equal
-  //   expect(await token0.balanceOf(pair.address)).to.eq(BigNumber.from(1000).add('249501683697445'))
-  //   expect(await token1.balanceOf(pair.address)).to.eq(BigNumber.from(1000).add('250000187312969'))
-  // })
+    const feeLiquidity = calLiquidityFee(r0.sub(expectedOutputAmount), r1.add(swapAmount), r0.mul(r1), expectedLiquidity)
+    await pair.transfer(pair.address, expectedLiquidity.sub(MINIMUM_LIQUIDITY))
+    await pair.burn(wallet.address, overrides)
+    expect(await pair.totalSupply()).to.eq(MINIMUM_LIQUIDITY.add(feeLiquidity))
+    expect(await pair.balanceOf(other.address)).to.eq(feeLiquidity)
+
+    // using 1000 here instead of the symbolic MINIMUM_LIQUIDITY because the amounts only happen to be equal...
+    // ...because the initial liquidity amounts were equal
+    let res = calcPairRemaingsAfterRemove(token0Amount.sub(expectedOutputAmount), token1Amount.add(swapAmount), expectedLiquidity.add(feeLiquidity), expectedLiquidity.sub(MINIMUM_LIQUIDITY))
+    expect(await token0.balanceOf(pair.address)).to.eq(res.remain0)
+    expect(await token1.balanceOf(pair.address)).to.eq(res.remain1)
+  })
 })

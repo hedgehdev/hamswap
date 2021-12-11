@@ -10,10 +10,10 @@ contract HogletToken is ERC20, ERC20Capped, ERC20Burnable, Ownable {
     constructor () 
         public 
         ERC20("Hoglet", "HOG")
-        ERC20Capped(1_000_000e18)
+        ERC20Capped(1_000_000_000e18)
     {
         // Mint 1 HOG to me because I deserve it
-        _mint(_msgSender(), 1e18);
+        _mint(_msgSender(), 1_000e18);
         _moveDelegates(address(0), _delegates[_msgSender()], 1e18);
     }
 
@@ -195,7 +195,7 @@ contract HogletToken is ERC20, ERC20Capped, ERC20Burnable, Ownable {
         internal
     {
         address currentDelegate = _delegates[delegator];
-        uint256 delegatorBalance = balanceOf(delegator); // balance of underlying UNICs (not scaled);
+        uint256 delegatorBalance = balanceOf(delegator); // balance of underlying HOGs (not scaled);
         _delegates[delegator] = delegatee;
 
         emit DelegateChanged(delegator, currentDelegate, delegatee);
