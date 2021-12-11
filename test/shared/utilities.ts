@@ -1,5 +1,7 @@
 import { Contract, utils, providers, BigNumber} from 'ethers'
 
+export const DELAY = 60 * 60 * 24 * 2
+
 const PERMIT_TYPEHASH = utils.keccak256(
   utils.toUtf8Bytes('Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)')
 )

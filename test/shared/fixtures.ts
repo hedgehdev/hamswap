@@ -1,7 +1,8 @@
-import { Contract, Wallet, providers, BigNumber } from 'ethers'
-import { deployContract } from 'ethereum-waffle'
+import chai, { expect } from 'chai'
+import { Contract, Wallet, providers, BigNumber, constants } from 'ethers'
+import { solidity, deployContract } from 'ethereum-waffle'
 
-import { expandTo18Decimals } from './utilities'
+import { expandTo18Decimals, DELAY } from './utilities'
 
 import TestHamSwapV2ERC20 from '../../build/TestHamSwapV2ERC20.json'
 import HamSwapV2Factory from '../../build/HamSwapV2Factory.json'
@@ -10,6 +11,12 @@ import IHamSwapV2Pair from '../../build/IHamSwapV2Pair.json'
 import HamSwapV2Router02 from '../../build/HamSwapV2Router02.json'
 import RouterEventEmitter from '../../build/RouterEventEmitter.json'
 import WETH9 from '../../build/WETH9.json'
+
+import Hoglet from '../../build/Hoglet.json'
+import Timelock from '../../build/Timelock.json'
+import GovernorAlpha from '../../build/GovernorAlpha.json'
+import HogBar from '../../build/HogBar.json'
+
 
 interface FactoryFixture {
   factory: Contract
@@ -136,4 +143,45 @@ export async function v2Fixture([wallet]: Wallet[],provider: providers.Web3Provi
     WETHPair,
     virt
   }
+}
+
+
+chai.use(solidity)
+
+
+interface GovernanceFixture {
+  hog: Contract
+  timelock: Contract
+  governorAlpha: Contract
+  hogBar: Contract
+}
+
+export async function governanceFixture(
+  [wallet]: Wallet[],
+  provider: providers.Web3Provider
+): Promise<GovernanceFixture> {
+  
+  
+  
+  // const { timestamp: now } = await provider.getBlock('latest')
+  // const timelockAddress = Contract.getContractAddress({ from: wallet.address, nonce: 1 })
+  
+  const hog = await deployContract(wallet, Hoglet, []);
+
+  const timelock = await deployContract(wallet, Timelock, [wallet.address, DELAY])
+
+  const governorAlpha = await deployContract(wallet, GovernorAlpha, [timelock.address, hog.address, wallet.address])
+
+  await timelock.setPendingAdmin(governorAlpha.address)
+  await governorAlpha.__acceptAdmin();
+
+  expect(await timelock.admin()).to.be.eq(governorAlpha.address)
+  expect(await timelock.pendingAdmin()).to.be.eq(constants.AddressZero)
+  expect(await governorAlpha.hog()).to.be.eq(hog.address)
+  expect(await governorAlpha.timelock()).to.be.eq(timelock.address)
+  expect(await governorAlpha.guardian()).to.be.eq(wallet.address)
+
+  const hogBar = await deployContract(wallet, HogBar, [hog.address])
+
+  return { hog, timelock, governorAlpha, hogBar }
 }

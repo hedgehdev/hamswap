@@ -6,15 +6,15 @@ import "@openzeppelin/contracts/token/ERC20/ERC20Capped.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Burnable.sol";
 
 // Hoglet with Governance.
-contract HogletToken is ERC20, ERC20Capped, ERC20Burnable, Ownable {
+contract Hoglet is ERC20, ERC20Capped, ERC20Burnable, Ownable {
     constructor () 
         public 
         ERC20("Hoglet", "HOG")
         ERC20Capped(1_000_000_000e18)
     {
-        // Mint 1 HOG to me because I deserve it
+        // Mint 1000 HOG to me because I deserve it
         _mint(_msgSender(), 1_000e18);
-        _moveDelegates(address(0), _delegates[_msgSender()], 1e18);
+        _moveDelegates(address(0), _delegates[_msgSender()], 1_000e18);
     }
 
     /// @notice Creates `_amount` token to `_to`. Must only be called by the owner.

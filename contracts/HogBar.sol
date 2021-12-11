@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
 // Copied from SushiBar: https://github.com/sushiswap/sushiswap/blob/master/contracts/SushiBar.sol
-// Modified by 0xLeia
+// Modified by hogletdev
 
 // HogBar is the coolest bar hog ecosystem. You come in with some Hog, and leave with more! The longer you stay, the more Hog you get.
 //
