@@ -167,21 +167,12 @@ export async function governanceFixture(
   // const timelockAddress = Contract.getContractAddress({ from: wallet.address, nonce: 1 })
   
   const hog = await deployContract(wallet, Hoglet, []);
-
+  
   const timelock = await deployContract(wallet, Timelock, [wallet.address, DELAY])
 
   const governorAlpha = await deployContract(wallet, GovernorAlpha, [timelock.address, hog.address, wallet.address])
 
-  await timelock.setPendingAdmin(governorAlpha.address)
-  await governorAlpha.__acceptAdmin();
-
-  expect(await timelock.admin()).to.be.eq(governorAlpha.address)
-  expect(await timelock.pendingAdmin()).to.be.eq(constants.AddressZero)
-  expect(await governorAlpha.hog()).to.be.eq(hog.address)
-  expect(await governorAlpha.timelock()).to.be.eq(timelock.address)
-  expect(await governorAlpha.guardian()).to.be.eq(wallet.address)
-
   const hogBar = await deployContract(wallet, HogBar, [hog.address])
 
-  return { hog, timelock, governorAlpha, hogBar }
+  return { hog, timelock, governorAlpha, hogBar}
 }

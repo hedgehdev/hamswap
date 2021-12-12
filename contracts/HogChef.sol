@@ -74,15 +74,15 @@ contract HogChef is Ownable {
         address _hog,
         address _devaddr,
         uint256 _hogPerBlock,
-        uint256 _startBlock,
         uint256 _bonusMultiplier,
+        uint256 _startBlock,
         uint256 _bonusEndBlock
     ) public {
         hog = IERC20(_hog);
         devaddr = _devaddr;
         hogPerBlock = _hogPerBlock;
-        startBlock = _startBlock;
         bonusMultiplier = _bonusMultiplier;
+        startBlock = _startBlock;
         bonusEndBlock = _bonusEndBlock;
     }
 
@@ -214,7 +214,7 @@ contract HogChef is Ownable {
         pool.lastRewardBlock = block.number;
     }
 
-    // Deposit LP tokens to MasterChef for HOG allocation.
+    // Deposit LP tokens to HogChef for HOG allocation.
     function deposit(uint256 _pid, uint256 _amount) public {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
@@ -237,7 +237,7 @@ contract HogChef is Ownable {
         emit Deposit(msg.sender, _pid, _amount);
     }
 
-    // Withdraw LP tokens from MasterChef.
+    // Withdraw LP tokens from HogChef.
     function withdraw(uint256 _pid, uint256 _amount) public {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];

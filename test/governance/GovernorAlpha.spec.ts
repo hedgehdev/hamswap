@@ -26,21 +26,32 @@ describe('GovernorAlpha', () => {
     hog = fixture.hog
     timelock = fixture.timelock
     governorAlpha = fixture.governorAlpha
+
+    await hog.transferOwnership(timelock.address)
+    await timelock.setPendingAdmin(governorAlpha.address)
+    await governorAlpha.__acceptAdmin();
   })
 
-  it('hog', async () => {
+  it('gov:hog', async () => {
+    expect(await hog.owner()).to.be.eq(timelock.address)
+    expect(await timelock.admin()).to.be.eq(governorAlpha.address)
+    expect(await timelock.pendingAdmin()).to.be.eq(constants.AddressZero)
+    expect(await governorAlpha.hog()).to.be.eq(hog.address)
+    expect(await governorAlpha.timelock()).to.be.eq(timelock.address)
+    expect(await governorAlpha.guardian()).to.be.eq(wallet.address)
+
     const balance = await hog.balanceOf(wallet.address)
     const totalSupply = await hog.totalSupply()
     expect(balance).to.be.eq(totalSupply)
   })
 
-  it('timelock', async () => {
+  it('gov:timelock', async () => {
     expect(await timelock.admin()).to.be.eq(governorAlpha.address)
     expect(await timelock.pendingAdmin()).to.be.eq(constants.AddressZero)
     expect(await timelock.delay()).to.be.eq(DELAY)
   })
 
-  it('governor', async () => {
+  it('gov:governor', async () => {
     expect(await governorAlpha.votingPeriod()).to.be.eq(17280)
     expect(await governorAlpha.timelock()).to.be.eq(timelock.address)
     expect(await governorAlpha.hog()).to.be.eq(hog.address)
