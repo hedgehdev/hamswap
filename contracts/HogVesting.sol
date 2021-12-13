@@ -215,7 +215,7 @@ contract HogVesting is Ownable, ReentrancyGuard{
         nonReentrant
         onlyOwner{
         require(this.getWithdrawableAmount() >= amount, "HogVesting: not enough withdrawable funds");
-        _token.safeTransfer(owner(), amount);
+        safeTokenTransfer(owner(), amount);
     }
 
     /**
@@ -242,7 +242,7 @@ contract HogVesting is Ownable, ReentrancyGuard{
         vestingSchedule.released = vestingSchedule.released.add(amount);
         address payable beneficiaryPayable = payable(vestingSchedule.beneficiary);
         vestingSchedulesTotalAmount = vestingSchedulesTotalAmount.sub(amount);
-        _token.safeTransfer(beneficiaryPayable, amount);
+        safeTokenTransfer(beneficiaryPayable, amount);
     }
 
     /**
@@ -343,6 +343,15 @@ contract HogVesting is Ownable, ReentrancyGuard{
             uint256 vestedAmount = vestingSchedule.amountTotal.mul(vestedSeconds).div(vestingSchedule.duration);
             vestedAmount = vestedAmount.sub(vestingSchedule.released);
             return vestedAmount;
+        }
+    }
+    // here we add another way to make sure token won't be stuck
+    function safeTokenTransfer(address _to, uint256 _amount) internal {
+        uint256 bal = _token.balanceOf(address(this));
+        if (_amount > bal) {
+            _token.safeTransfer(_to, bal);
+        } else {
+            _token.safeTransfer(_to, _amount);
         }
     }
 
