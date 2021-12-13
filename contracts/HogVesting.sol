@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/math/Math.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
-// Copied from https://github.com/abdelhamidbakhta/token-vesting-contracts/blob/main/contracts/TokenVesting.sol
+// Copied from https://github.com/abdelhamidbakhta/token-vesting-contracts/blob/main/contracts/HogVesting.sol
 // Modified by hogletdev
 
 
@@ -102,7 +102,7 @@ contract HogVesting is Ownable, ReentrancyGuard{
     external
     view
     returns(bytes32){
-        require(index < getVestingSchedulesCount(), "TokenVesting: index out of bounds");
+        require(index < getVestingSchedulesCount(), "HogVesting: index out of bounds");
         return vestingSchedulesIds[index];
     }
 
@@ -162,11 +162,11 @@ contract HogVesting is Ownable, ReentrancyGuard{
         onlyOwner{
         require(
             this.getWithdrawableAmount() >= _amount,
-            "TokenVesting: cannot create vesting schedule because not sufficient tokens"
+            "HogVesting: cannot create vesting schedule because not sufficient tokens"
         );
-        require(_duration > 0, "TokenVesting: duration must be > 0");
-        require(_amount > 0, "TokenVesting: amount must be > 0");
-        require(_slicePeriodSeconds >= 1, "TokenVesting: slicePeriodSeconds must be >= 1");
+        require(_duration > 0, "HogVesting: duration must be > 0");
+        require(_amount > 0, "HogVesting: amount must be > 0");
+        require(_slicePeriodSeconds >= 1, "HogVesting: slicePeriodSeconds must be >= 1");
         bytes32 vestingScheduleId = this.computeNextVestingScheduleIdForHolder(_beneficiary);
         uint256 cliff = _start.add(_cliff);
         vestingSchedules[vestingScheduleId] = VestingSchedule(
@@ -196,7 +196,7 @@ contract HogVesting is Ownable, ReentrancyGuard{
         onlyOwner
         onlyIfVestingScheduleNotRevoked(vestingScheduleId){
         VestingSchedule storage vestingSchedule = vestingSchedules[vestingScheduleId];
-        require(vestingSchedule.revocable == true, "TokenVesting: vesting is not revocable");
+        require(vestingSchedule.revocable == true, "HogVesting: vesting is not revocable");
         uint256 vestedAmount = _computeReleasableAmount(vestingSchedule);
         if(vestedAmount > 0){
             release(vestingScheduleId, vestedAmount);
@@ -214,7 +214,7 @@ contract HogVesting is Ownable, ReentrancyGuard{
         public
         nonReentrant
         onlyOwner{
-        require(this.getWithdrawableAmount() >= amount, "TokenVesting: not enough withdrawable funds");
+        require(this.getWithdrawableAmount() >= amount, "HogVesting: not enough withdrawable funds");
         _token.safeTransfer(owner(), amount);
     }
 
@@ -235,10 +235,10 @@ contract HogVesting is Ownable, ReentrancyGuard{
         bool isOwner = msg.sender == owner();
         require(
             isBeneficiary || isOwner,
-            "TokenVesting: only beneficiary and owner can release vested tokens"
+            "HogVesting: only beneficiary and owner can release vested tokens"
         );
         uint256 vestedAmount = _computeReleasableAmount(vestingSchedule);
-        require(vestedAmount >= amount, "TokenVesting: cannot release tokens, not enough vested tokens");
+        require(vestedAmount >= amount, "HogVesting: cannot release tokens, not enough vested tokens");
         vestingSchedule.released = vestingSchedule.released.add(amount);
         address payable beneficiaryPayable = payable(vestingSchedule.beneficiary);
         vestingSchedulesTotalAmount = vestingSchedulesTotalAmount.sub(amount);
@@ -265,7 +265,8 @@ contract HogVesting is Ownable, ReentrancyGuard{
         onlyIfVestingScheduleNotRevoked(vestingScheduleId)
         view
         returns(uint256){
-        VestingSchedule storage vestingSchedule = vestingSchedules[vestingScheduleId];
+        // VestingSchedule storage vestingSchedule = vestingSchedules[vestingScheduleId];
+        VestingSchedule memory vestingSchedule = vestingSchedules[vestingScheduleId];
         return _computeReleasableAmount(vestingSchedule);
     }
 
@@ -330,7 +331,7 @@ contract HogVesting is Ownable, ReentrancyGuard{
     view
     returns(uint256){
         uint256 currentTime = getCurrentTime();
-        if ((currentTime < vestingSchedule.cliff) || vestingSchedule.revoked == true) {
+        if ((currentTime < vestingSchedule.cliff) || vestingSchedule.revoked) {
             return 0;
         } else if (currentTime >= vestingSchedule.start.add(vestingSchedule.duration)) {
             return vestingSchedule.amountTotal.sub(vestingSchedule.released);

@@ -54,8 +54,8 @@ export async function latestBlockNumber(provider: providers.Web3Provider) {
   return BigNumber.from(block.number)
 }
 
-export async function increase(provider: providers.Web3Provider, value: BigNumber) {
-  await provider.send("evm_increaseTime", [value.toNumber()])
+export async function increase(provider: providers.Web3Provider, inc: BigNumber) {
+  await provider.send("evm_increaseTime", [inc.toNumber()])
   await advanceBlock(provider)
 }
 

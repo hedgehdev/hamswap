@@ -17,6 +17,9 @@ import Timelock from '../../build/Timelock.json'
 import GovernorAlpha from '../../build/GovernorAlpha.json'
 import HogBar from '../../build/HogBar.json'
 
+import TestERC20 from '../../build/TestERC20.json'
+import HogVesting from '../../build/HogVesting.json'
+
 
 interface FactoryFixture {
   factory: Contract
@@ -146,9 +149,6 @@ export async function v2Fixture([wallet]: Wallet[],provider: providers.Web3Provi
 }
 
 
-chai.use(solidity)
-
-
 interface GovernanceFixture {
   hog: Contract
   timelock: Contract
@@ -160,8 +160,6 @@ export async function governanceFixture(
   [wallet]: Wallet[],
   provider: providers.Web3Provider
 ): Promise<GovernanceFixture> {
-  
-  
   
   // const { timestamp: now } = await provider.getBlock('latest')
   // const timelockAddress = Contract.getContractAddress({ from: wallet.address, nonce: 1 })
@@ -175,4 +173,22 @@ export async function governanceFixture(
   const hogBar = await deployContract(wallet, HogBar, [hog.address])
 
   return { hog, timelock, governorAlpha, hogBar}
+}
+
+
+interface VestingFixture {
+  token: Contract
+  vesting: Contract
+}
+
+
+export async function vestingFixture(
+  [wallet]: Wallet[],
+  provider: providers.Web3Provider
+): Promise<VestingFixture> {
+  
+  const token = await deployContract(wallet, TestERC20, ["MockHog", "Hog", expandTo18Decimals(10000)])
+  const vesting = await deployContract(wallet, HogVesting, [token.address])
+  
+  return { token, vesting}
 }
